@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SecureVMS - Vulnerability Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 SecureVMS</h1>
+            <p class="subtitle">Simple Vulnerability Management System</p>
+            <div class="company-badge">🏦 FinSecure Bank</div>
+        </header>
+
+        <div class="message">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="quick-actions">
+            <h2>Quick Actions</h2>
+            <div class="action-grid">
+                <a href="/register" class="action-card">
+                    <span class="icon">👤</span>
+                    <h3>Register</h3>
+                    <p>Create new account</p>
+                </a>
+                <a href="/report" class="action-card">
+                    <span class="icon">📊</span>
+                    <h3>Report Vulnerability</h3>
+                    <p>For external consultants</p>
+                </a>
+                <a href="/vulnerabilities" class="action-card">
+                    <span class="icon">📋</span>
+                    <h3>View All</h3>
+                    <p>See all reported issues</p>
+                </a>
+            </div>
+        </div>
+
+        <div class="roles">
+            <h2>How It Works</h2>
+            <div class="role-grid">
+                <div class="role-card">
+                    <h3>🔍 External Consultant</h3>
+                    <ol>
+                        <li>Register</li>
+                        <li>Upload vulnerability report</li>
+                        <li>Add screenshots/evidence</li>
+                        <li>Track status</li>
+                    </ol>
+                </div>
+                <div class="role-card">
+                    <h3>🛡️ Internal Engineer</h3>
+                    <ol>
+                        <li>Register</li>
+                        <li>View reported vulnerabilities</li>
+                        <li>Assign to team</li>
+                        <li>Update status when fixed</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Assignment Project - Dockerized Web Application</p>
+        </footer>
+    </div>
+</body>
+</html>

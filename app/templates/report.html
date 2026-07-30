@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Report Vulnerability - SecureVMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Report Vulnerability</h1>
+        <p class="subtitle">Upload your findings</p>
+
+        <div class="message">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Vulnerability Title</label>
+                <input type="text" name="title" required placeholder="e.g., SQL Injection in Login Page">
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="5" required placeholder="Describe the vulnerability, impact, and how to reproduce"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Severity</label>
+                <select name="severity">
+                    <option value="Critical">🔴 Critical</option>
+                    <option value="High">🟠 High</option>
+                    <option value="Medium" selected>🟡 Medium</option>
+                    <option value="Low">🟢 Low</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Your Email</label>
+                <input type="email" name="email" required placeholder="Enter your registered email">
+            </div>
+
+            <div class="form-group">
+                <label>Upload Evidence (Screenshots, Reports, etc.)</label>
+                <input type="file" name="file">
+                <small>Allowed: PDF, PNG, JPG, GIF, TXT, DOC, DOCX</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary">🚀 Submit Report</button>
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+        </form>
+    </div>
+</body>
+</html>
