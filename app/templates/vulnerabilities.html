@@ -6,8 +6,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>📋 All Vulnerabilities</h1>
-        <p class="subtitle">Complete list of reported issues</p>
+        <header>
+            <h1>📋 All Vulnerabilities</h1>
+            <p class="subtitle">Complete list of reported issues</p>
+            <div class="user-badge">
+                👤 {{ session.user_name }} ({{ session.user_role|title }})
+                <a href="/logout" class="btn btn-small">Logout</a>
+                <a href="/" class="btn btn-small">Home</a>
+            </div>
+        </header>
 
         <div class="message">
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -42,20 +49,28 @@
                     <td>{{ vuln.reported_by_name or 'Unknown' }}</td>
                     <td>{{ vuln.created_at.strftime('%Y-%m-%d') if vuln.created_at else 'N/A' }}</td>
                     <td>
-                        <form method="POST" action="/update_status/{{ vuln.id }}" style="display:inline;">
-                            <select name="status" onchange="this.form.submit()">
-                                <option value="New" {% if vuln.status == 'New' %}selected{% endif %}>New</option>
-                                <option value="Assigned" {% if vuln.status == 'Assigned' %}selected{% endif %}>Assigned</option>
-                                <option value="Fixed" {% if vuln.status == 'Fixed' %}selected{% endif %}>Fixed</option>
-                                <option value="Verified" {% if vuln.status == 'Verified' %}selected{% endif %}>Verified</option>
-                                <option value="Closed" {% if vuln.status == 'Closed' %}selected{% endif %}>Closed</option>
-                            </select>
-                        </form>
+                        {% if session.user_role == 'internal' %}
+                            <!-- INTERNAL ENGINEERS CAN CHANGE STATUS -->
+                            <form method="POST" action="/update_status/{{ vuln.id }}" style="display:inline;">
+                                <select name="status" onchange="this.form.submit()">
+                                    <option value="New" {% if vuln.status == 'New' %}selected{% endif %}>New</option>
+                                    <option value="Assigned" {% if vuln.status == 'Assigned' %}selected{% endif %}>Assigned</option>
+                                    <option value="Fixed" {% if vuln.status == 'Fixed' %}selected{% endif %}>Fixed</option>
+                                    <option value="Verified" {% if vuln.status == 'Verified' %}selected{% endif %}>Verified</option>
+                                    <option value="Closed" {% if vuln.status == 'Closed' %}selected{% endif %}>Closed</option>
+                                </select>
+                            </form>
+                        {% else %}
+                            <!-- EXTERNAL CAN ONLY VIEW -->
+                            <span class="status-{{ vuln.status.lower() }}">{{ vuln.status }}</span>
+                            <small>(View Only)</small>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        <p><small>🔒 Only Internal Engineers can update status</small></p>
         {% else %}
         <div class="empty-state">
             <p>📭 No vulnerabilities reported yet.</p>

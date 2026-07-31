@@ -1,11 +1,12 @@
-from flask import Flask, render_template, request, redirect, flash
+from flask import Flask, render_template, request, redirect, flash, session
 import mysql.connector
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
+import hashlib
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'
+app.secret_key = 'your-very-secret-key-change-this-in-production'
 
 # Configuration
 UPLOAD_FOLDER = '/app/uploads'
@@ -44,6 +45,7 @@ def init_db():
                 email VARCHAR(100) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 role ENUM('internal', 'external') DEFAULT 'external',
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -65,9 +67,67 @@ def init_db():
             )
         ''')
         
+        # Audit trail
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS audit_trail (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                vulnerability_id INT,
+                action VARCHAR(100),
+                performed_by INT,
+                notes TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (vulnerability_id) REFERENCES vulnerabilities(id),
+                FOREIGN KEY (performed_by) REFERENCES users(id)
+            )
+        ''')
+        
         conn.commit()
         cursor.close()
         conn.close()
+
+# --------------- AUTHENTICATION ---------------
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page"""
+    # If already logged in, go to dashboard
+    if 'user_id' in session:
+        return redirect('/vulnerabilities')
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        conn = get_db()
+        if conn:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+            user = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if user and user['password'] == password:
+                # Login successful
+                session['user_id'] = user['id']
+                session['user_name'] = user['name']
+                session['user_email'] = user['email']
+                session['user_role'] = user['role']
+                
+                flash(f'Welcome back, {user["name"]}!', 'success')
+                return redirect('/vulnerabilities')
+            else:
+                flash('Invalid email or password!', 'danger')
+        else:
+            flash('Database connection error!', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Logout user"""
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect('/')
 
 # --------------- ROUTES ---------------
 
@@ -94,8 +154,8 @@ def register():
                     (name, email, password, role)
                 )
                 conn.commit()
-                flash('Registration successful! You can now report vulnerabilities.', 'success')
-                return redirect('/report')
+                flash('Registration successful! Please login.', 'success')
+                return redirect('/login')
             except mysql.connector.IntegrityError:
                 flash('Email already registered! Please use a different email.', 'danger')
             finally:
@@ -109,11 +169,18 @@ def register():
 @app.route('/report', methods=['GET', 'POST'])
 def report():
     """Report vulnerability - for external consultants"""
+    # CHECK: User must be logged in
+    if 'user_id' not in session:
+        flash('Please login to report vulnerabilities.', 'warning')
+        return redirect('/login')
+    
     if request.method == 'POST':
         title = request.form.get('title')
         description = request.form.get('description')
         severity = request.form.get('severity')
-        email = request.form.get('email')
+        
+        # Get user ID from session
+        user_id = session['user_id']
         
         # Handle file upload
         file = request.files.get('file')
@@ -127,21 +194,22 @@ def report():
         if conn:
             cursor = conn.cursor()
             try:
-                # Get user ID
-                cursor.execute('SELECT id FROM users WHERE email = %s', (email,))
-                user = cursor.fetchone()
+                cursor.execute(
+                    '''INSERT INTO vulnerabilities 
+                       (title, description, severity, reported_by, file_name, status) 
+                       VALUES (%s, %s, %s, %s, %s, 'New')''',
+                    (title, description, severity, user_id, filename)
+                )
+                vuln_id = cursor.lastrowid
                 
-                if user:
-                    cursor.execute(
-                        '''INSERT INTO vulnerabilities 
-                           (title, description, severity, reported_by, file_name, status) 
-                           VALUES (%s, %s, %s, %s, %s, 'New')''',
-                        (title, description, severity, user[0], filename)
-                    )
-                    conn.commit()
-                    flash('Vulnerability reported successfully! Internal team notified.', 'success')
-                else:
-                    flash('User not found! Please register first.', 'danger')
+                # Add to audit trail
+                cursor.execute(
+                    'INSERT INTO audit_trail (vulnerability_id, action, performed_by, notes) VALUES (%s, %s, %s, %s)',
+                    (vuln_id, 'Reported', user_id, f'Vulnerability reported by {session["user_name"]}')
+                )
+                
+                conn.commit()
+                flash('Vulnerability reported successfully! Internal team notified.', 'success')
             except Exception as e:
                 flash(f'Error: {str(e)}', 'danger')
             finally:
@@ -150,13 +218,18 @@ def report():
         else:
             flash('Database connection error!', 'danger')
         
-        return redirect('/')
+        return redirect('/vulnerabilities')
     
     return render_template('report.html')
 
 @app.route('/vulnerabilities')
 def list_vulnerabilities():
     """View all reported vulnerabilities"""
+    # CHECK: User must be logged in
+    if 'user_id' not in session:
+        flash('Please login to view vulnerabilities.', 'warning')
+        return redirect('/login')
+    
     conn = get_db()
     vulnerabilities = []
     
@@ -179,26 +252,56 @@ def list_vulnerabilities():
         cursor.close()
         conn.close()
     
-    return render_template('vulnerabilities.html', vulnerabilities=vulnerabilities)
+    return render_template('vulnerabilities.html', vulnerabilities=vulnerabilities, session=session)
 
 @app.route('/update_status/<int:vuln_id>', methods=['POST'])
 def update_status(vuln_id):
-    """Update vulnerability status - for internal team"""
+    """Update vulnerability status - ONLY for Internal Engineers"""
+    # CHECK: User must be logged in
+    if 'user_id' not in session:
+        flash('Please login first.', 'warning')
+        return redirect('/login')
+    
+    # CHECK: User must be INTERNAL ENGINEER
+    if session.get('user_role') != 'internal':
+        flash('⚠️ Only Internal Engineers can update vulnerability status!', 'danger')
+        return redirect('/vulnerabilities')
+    
     status = request.form.get('status')
+    user_id = session['user_id']
+    user_name = session.get('user_name', 'Unknown')
     
     conn = get_db()
     if conn:
         cursor = conn.cursor()
+        
+        # Update status
         cursor.execute(
             'UPDATE vulnerabilities SET status = %s WHERE id = %s',
             (status, vuln_id)
         )
+        
+        # Audit trail
+        cursor.execute(
+            'INSERT INTO audit_trail (vulnerability_id, action, performed_by, notes) VALUES (%s, %s, %s, %s)',
+            (vuln_id, f'Status changed to {status}', user_id, f'Changed by {user_name}')
+        )
+        
         conn.commit()
         cursor.close()
         conn.close()
-        flash('Status updated successfully!', 'success')
+        flash(f'✅ Status updated to "{status}" by {user_name}', 'success')
     
     return redirect('/vulnerabilities')
+
+@app.route('/profile')
+def profile():
+    """Show user profile"""
+    if 'user_id' not in session:
+        flash('Please login to view profile.', 'warning')
+        return redirect('/login')
+    
+    return render_template('profile.html', session=session)
 
 if __name__ == '__main__':
     init_db()

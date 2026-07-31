@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile - SecureVMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>👤 My Profile</h1>
+        
+        <div class="user-badge">
+            <a href="/logout" class="btn btn-small">Logout</a>
+            <a href="/" class="btn btn-small">Home</a>
+        </div>
+
+        <div class="profile-info">
+            <p><strong>Name:</strong> {{ session.user_name }}</p>
+            <p><strong>Email:</strong> {{ session.user_email }}</p>
+            <p><strong>Role:</strong> {{ session.user_role|title }}</p>
+            
+            {% if session.user_role == 'internal' %}
+                <p><strong>Permissions:</strong> ✅ Can update vulnerability status</p>
+            {% else %}
+                <p><strong>Permissions:</strong> 👁️ Can only view vulnerabilities</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 20px;">
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

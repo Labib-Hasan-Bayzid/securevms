@@ -9,7 +9,14 @@
         <header>
             <h1>🔐 SecureVMS</h1>
             <p class="subtitle">Simple Vulnerability Management System</p>
-            <div class="company-badge">🏦 FinSecure Bank</div>
+            <div class="company-badge">🏦 Data Vault</div>
+            
+            {% if session.user_id %}
+                <div class="user-badge">
+                    👤 {{ session.user_name }} ({{ session.user_role|title }})
+                    <a href="/logout" class="btn btn-small">Logout</a>
+                </div>
+            {% endif %}
         </header>
 
         <div class="message">
@@ -25,21 +32,34 @@
         <div class="quick-actions">
             <h2>Quick Actions</h2>
             <div class="action-grid">
-                <a href="/register" class="action-card">
-                    <span class="icon">👤</span>
-                    <h3>Register</h3>
-                    <p>Create new account</p>
-                </a>
-                <a href="/report" class="action-card">
-                    <span class="icon">📊</span>
-                    <h3>Report Vulnerability</h3>
-                    <p>For external consultants</p>
-                </a>
-                <a href="/vulnerabilities" class="action-card">
-                    <span class="icon">📋</span>
-                    <h3>View All</h3>
-                    <p>See all reported issues</p>
-                </a>
+                {% if not session.user_id %}
+                    <a href="/login" class="action-card">
+                        <span class="icon">🔑</span>
+                        <h3>Login</h3>
+                        <p>Sign in to your account</p>
+                    </a>
+                    <a href="/register" class="action-card">
+                        <span class="icon">👤</span>
+                        <h3>Register</h3>
+                        <p>Create new account</p>
+                    </a>
+                {% else %}
+                    <a href="/report" class="action-card">
+                        <span class="icon">📊</span>
+                        <h3>Report Vulnerability</h3>
+                        <p>For external consultants</p>
+                    </a>
+                    <a href="/vulnerabilities" class="action-card">
+                        <span class="icon">📋</span>
+                        <h3>View All</h3>
+                        <p>See all reported issues</p>
+                    </a>
+                    <a href="/profile" class="action-card">
+                        <span class="icon">👤</span>
+                        <h3>My Profile</h3>
+                        <p>View your account</p>
+                    </a>
+                {% endif %}
             </div>
         </div>
 
@@ -50,6 +70,7 @@
                     <h3>🔍 External Consultant</h3>
                     <ol>
                         <li>Register</li>
+                        <li>Login</li>
                         <li>Upload vulnerability report</li>
                         <li>Add screenshots/evidence</li>
                         <li>Track status</li>
@@ -59,6 +80,7 @@
                     <h3>🛡️ Internal Engineer</h3>
                     <ol>
                         <li>Register</li>
+                        <li>Login</li>
                         <li>View reported vulnerabilities</li>
                         <li>Assign to team</li>
                         <li>Update status when fixed</li>
@@ -69,6 +91,11 @@
 
         <footer>
             <p>Assignment Project - Dockerized Web Application</p>
+            {% if session.user_id %}
+                <p>Logged in as: {{ session.user_name }}</p>
+            {% else %}
+                <p>Not logged in</p>
+            {% endif %}
         </footer>
     </div>
 </body>
